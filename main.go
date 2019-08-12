@@ -52,11 +52,14 @@ func init() {
 	}
 }
 
+/*
+CollectCdr -TransmitCdr-> ParseCdr -TransmitAlarmCdr-> [company]
+*/
 func main() {
 	flag.Parse()
 
 	go TransmitCdr(*as, *svrAddr)
-	go AlarmCdr(*alarmUri)
+	go TransmitAlarmCdr(*alarmUri)
 
 	if *as == "client" {
 		go CollectCdr(*cdrPath, SendCdr)

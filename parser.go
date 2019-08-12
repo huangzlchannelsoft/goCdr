@@ -14,8 +14,9 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 	log.Println("run parseCdr")
 
 	for {
-		recvCdr()
+		recvCdr() //cdr := recvCdr()
 		//parse cdr
+		//stat by aera||producter
 		alarm := ""
 		sendAlarm(alarm)
 	}

@@ -18,7 +18,7 @@ func init() {
 	log.Println("init alarm!")
 }
 
-func AlarmCdr(uri string) {
+func TransmitAlarmCdr(uri string) {
 
 	client := http.Client{Timeout: time.Second * 5}
 
