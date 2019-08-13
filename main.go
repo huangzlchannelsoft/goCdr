@@ -21,10 +21,11 @@ var (
 )
 
 type Config struct {
-	Version string `yaml:"version"`
-	Logfile bool   `yaml:"logfile"`
-	Bakdays int    `yaml:"bakdays"`
-	Nid     string `yaml:"nid"`
+	CdrCommaTotal 	int 	`yaml:"cdrCommaTotal"`
+	Version 		string 	`yaml:"version"`
+	Logfile 		bool   	`yaml:"logfile"`
+	Bakdays 		int    	`yaml:"bakdays"`
+	Nid     		string 	`yaml:"nid"`
 }
 
 var gCfg Config
