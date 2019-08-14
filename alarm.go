@@ -4,7 +4,6 @@ package main
 import (
 	"log"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -22,32 +21,10 @@ func TransmitAlarmCdr(uri string) {
 
 	client := http.Client{Timeout: time.Second * 5}
 
-	httpPost := func(uri string, data string) bool {
-		request, err := http.NewRequest("POST", uri, strings.NewReader(data))
-		if err != nil {
-			log.Println("[Err] new request.", err.Error())
-			return false
-		}
-		request.Header.Set("Content-type", "application/json")
-		request.Header.Set("charset", "utf-8")
-
-		response, err := client.Do(request)
-		if err != nil {
-			log.Println("[Err] Do request.", err.Error())
-			return false
-		}
-		if response.StatusCode != 200 {
-			log.Println("[Err]", "reponse err.", response.StatusCode)
-			return false
-		}
-
-		return true
-	}
-
 	for {
 		alarm := <-alarmCh
 
-		ok := httpPost(uri, alarm)
+		ok := HttpPost(&client, uri, alarm, nil)
 		if ok { //TODO: send alarm error.
 
 		}

@@ -2,22 +2,26 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"gopkg.in/natefinch/lumberjack.v2"
 	yaml "gopkg.in/yaml.v2"
 )
 
 var (
-	as            = flag.String("as", "singleton", "run as client || server || singleton.")
-	cdrPath       = flag.String("cdrPath", "", "cdr filepath that collected from.")
-	svrAddr       = flag.String("svrAddr", "", "ip:port.")
-	alarmUri      = flag.String("alarmUri", "", "send alarm via...")
-	phoneCheckUri = flag.String("phoneCheckUri", "", "check phone's area|manuf via...")
+	as             = flag.String("as", "", "run as client || server || singleton.")
+	cdrPath        = flag.String("cdrPath", "", "cdr filepath that collected from.")
+	svrAddr        = flag.String("svrAddr", "", "ip:port.")
+	alarmUri       = flag.String("alarmUri", "", "send alarm via...")
+	pushGateWayUri = flag.String("pushGateWayUri", "", "send alarm via...")
+	phoneIspUri    = flag.String("phoneIspUri", "", "check phone's area via...")
+	phoneProUri    = flag.String("phoneProUri", "", "check phone's manul via...")
 )
 
 type Config struct {
@@ -53,13 +57,22 @@ func init() {
 }
 
 /*
-CollectCdr -TransmitCdr-> ParseCdr -TransmitAlarmCdr-> [company]
+CollectCdr -TransmitCdr-> ParseCdr -TransmitAlarmCdr-
+                                  |                  |->  [company]
+                                   -TransmitMonCdr---
 */
 func main() {
 	flag.Parse()
 
+	SetPhonePropertyUri(*phoneIspUri, *phoneProUri)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go TrickerDeamon(ctx)
+	go PromethuesClient(true, *pushGateWayUri, gCfg.Nid, 60)
+
 	go TransmitCdr(*as, *svrAddr)
 	go TransmitAlarmCdr(*alarmUri)
+	go TransmitMonCdr()
 
 	if *as == "client" {
 		go CollectCdr(*cdrPath, SendCdr)
@@ -75,5 +88,10 @@ func main() {
 	select {
 	case s := <-c:
 		log.Println("process received signal:", s.String())
+		switch s {
+		case syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
+			cancel()
+			return
+		}
 	}
 }
