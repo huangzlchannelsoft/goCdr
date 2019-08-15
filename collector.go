@@ -39,7 +39,7 @@ func readFileForLine (path string,fileName string,transmit CdrSend) error {
 	// 逐行读取
 	s := bufio.NewScanner(file)
 	lineNums := lastLineNum;
-	log.Printf("lineNums = %d",lineNums)
+	log.Printf("[INFO] lineNums = %d",lineNums)
 
 	// 当前行号
 	curLineNum := int32(0)
