@@ -42,7 +42,7 @@ func TransmitMonCdr() {
 
 	setKeyValue := func(k []byte, v []byte) {
 		log.Println(string(k))
-		productor, isp, province, area := Key2PhoneProperty(string(k))
+		pp := Key2PhoneProperty(string(k))
 
 		vs := strings.Split(string(v), "_")
 		callCounter, _ := strconv.Atoi(vs[0])
@@ -51,10 +51,10 @@ func TransmitMonCdr() {
 		oldCallErrCounter, _ := strconv.Atoi(vs[3])
 
 		crs := &CallRateStat{
-			productor:         productor,
-			isp:               isp,
-			province:          province,
-			area:              area,
+			productor:         pp.productor,
+			isp:               pp.isp,
+			province:          pp.province,
+			area:              pp.area,
 			callCounter:       callCounter,
 			callErrCounter:    callErrCounter,
 			oldCallCounter:    oldCallCounter,
@@ -74,7 +74,7 @@ func TransmitMonCdr() {
 			crs := callRateStatList[cursor]
 			cursor++
 
-			k := PhoneProperty2Key(crs.productor, crs.isp, crs.province, crs.area)
+			k := PhoneProperty2Key(&PhoneProperty{crs.productor, crs.isp, crs.province, crs.area})
 			v := fmt.Sprintf("%d_%d_%d_%d", crs.callCounter, crs.callErrCounter, crs.oldCallCounter, crs.oldCallErrCounter)
 			return []byte(k), []byte(v)
 		}
@@ -103,17 +103,18 @@ func TransmitMonCdr() {
 	}
 }
 
-func AddCallStat(key string, ok bool) {
+/*
+ */
+func AddCallStat(pp *PhoneProperty, ok bool) {
 
-	crs := property2Stat[key]
+	crs := property2Stat[PhoneProperty2Key(pp)]
 	if crs == nil {
-		productor, isp, province, area := Key2PhoneProperty(key)
 
 		crs = &CallRateStat{
-			productor:         productor,
-			isp:               isp,
-			province:          province,
-			area:              area,
+			productor:         pp.productor,
+			isp:               pp.isp,
+			province:          pp.province,
+			area:              pp.area,
 			callCounter:       0,
 			callErrCounter:    0,
 			oldCallCounter:    0,
@@ -122,7 +123,7 @@ func AddCallStat(key string, ok bool) {
 
 		cstLock.Lock()
 		defer cstLock.Unlock()
-		property2Stat[key] = crs
+		property2Stat[PhoneProperty2Key(pp)] = crs
 		callRateStatList = append(callRateStatList, crs)
 	}
 

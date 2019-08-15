@@ -119,13 +119,13 @@ func boltDeleteBucket(fileDb string, bucket string) {
 
 /**for key
  */
-func PhoneProperty2Key(productor, isp, province, area string) string {
-	return fmt.Sprintf("%s_%s_%s_%s", productor, isp, province, area)
+func PhoneProperty2Key(pp *PhoneProperty) string {
+	return fmt.Sprintf("%s_%s_%s_%s", pp.productor, pp.isp, pp.province, pp.area)
 }
 
-func Key2PhoneProperty(key string) (string, string, string, string) { //productor, isp, province, area
+func Key2PhoneProperty(key string) *PhoneProperty { //productor, isp, province, area
 	p := strings.Split(key, "_")
-	return p[0], p[1], p[2], p[3]
+	return &PhoneProperty{p[0], p[1], p[2], p[3]}
 }
 
 /**for httpClient

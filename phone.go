@@ -48,12 +48,7 @@ func LoadPhoneProperty() {
 		// log.Printf("key=%s, value=%s\n", k, v)
 
 		p := strings.Split(string(v), "_")
-		phone2Property[string(k)] = &PhoneProperty{
-			productor: p[0],
-			isp:       p[1],
-			province:  p[2],
-			area:      p[3],
-		}
+		phone2Property[string(k)] = &PhoneProperty{p[0], p[1], p[2], p[3]}
 	}
 	boltEnumKeyValue(PhonePropertyDB, PhonePropertyBulk, kv)
 }
@@ -116,14 +111,14 @@ excel表结构 ： 话批 客户名称 省份 地市 电话号码 号码开通�
 /*
 return productor_isp_province_area
 */
-func GetPhoneProperty(na []string, nb []string) []string {
+func GetPhoneProperty(na []string, nb []string) []*PhoneProperty {
 	requestPhoneProperty_(na, _phoneProUri)
 	requestPhoneProperty_(nb, _phoneIspUri)
 
 	if len(na) != len(nb) {
 		log.Printf("[Err] GetPhoneProperty.%d!=%d\n", len(na), len(nb))
 	} else {
-		var keys []string
+		var keys []*PhoneProperty
 
 		productor := ""
 		isp := ""
@@ -150,7 +145,8 @@ func GetPhoneProperty(na []string, nb []string) []string {
 				area = pb.area
 			}
 
-			keys = append(keys, PhoneProperty2Key(productor, isp, province, area))
+			pp := &PhoneProperty{productor, isp, province, area}
+			keys = append(keys, pp)
 		}
 		return keys
 	}
@@ -207,20 +203,16 @@ func PhonePropertyParser(data []byte) {
 				province := pp.Property[cursor].Province
 				area := pp.Property[cursor].Area
 
-				phone2Property[number] = &PhoneProperty{
-					productor: productor,
-					isp:       isp,
-					province:  province,
-					area:      area,
-				}
+				pp := &PhoneProperty{productor, isp, province, area}
+				phone2Property[number] = pp
 				cursor++
 
 				log.Println(number, productor, isp, province, area)
 
-				return []byte(number), []byte(PhoneProperty2Key(productor, isp, province, area))
+				return []byte(number), []byte(PhoneProperty2Key(pp))
 			}
 
-			boltBatchWriteKeyValue("phoneProperty.db", "phone2property", kv)
+			boltBatchWriteKeyValue(PhonePropertyDB, PhonePropertyBulk, kv)
 		} else {
 			log.Println("[Err] Request PhoneProperty", string(data))
 		}
