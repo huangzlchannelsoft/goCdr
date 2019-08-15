@@ -6,9 +6,9 @@ import (
 	"strings"
 	"regexp"
 	"math/big"
-	"time"
 	"fmt"
 	"encoding/json"
+	"time"
 )
 
 func init() {
@@ -38,7 +38,8 @@ type AlarmInfo struct {
 	value 			string
 }
 
-var cdrStateMap map[string] []*CdrState
+// cdr状态映射集
+var cdrStateMap = make(map[string] []*CdrState)
 
 // 分割解析cdr数据
 func parsingCdr (cdr string) map[string] string {
@@ -181,11 +182,10 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 						log.Println("[WARN]","当前key首次加入记录！")
 						stateCdr := CdrState{isNormal,curTimestamp}
 						stateCdrs := [] *CdrState{&stateCdr}
-						cdrStateMap = make(map[string] []*CdrState)
 						// 追加
 						cdrStateMap[key] = stateCdrs
 					} else {
-						log.Println()
+						log.Println("[WARN]","追加keyCdr记录")
 						stateCdr := CdrState{isNormal,curTimestamp}
 						// 追加并取出之前已存在数据
 						stateCdrs := append(cdrStateMap[key], &stateCdr)
