@@ -29,6 +29,7 @@ type CdrState struct {
 	curTimestamp 	int64
 }
 
+// 告警结构体
 type AlarmInfo struct {
 	// 被叫号码所在key
 	key 			string
@@ -44,7 +45,7 @@ var cdrStateMap = make(map[string] []*CdrState)
 // 分割解析cdr数据
 func parsingCdr (cdr string) map[string] string {
 	log.Println("[INFO] 接收到cdr信息为：",cdr)
-	resultMap := make(map[string] string,5)
+	resultMap := make(map[string] string,6)
 
 	columArrs := strings.Split(cdr,",")
 	if len(columArrs) > 0 {
@@ -93,16 +94,21 @@ func checkCalledNumber (calledNumber string) bool {
 }
 
 // 连续异常条数状态策略
-func abnormalStrategy (stateCdrs []*CdrState) *big.Int {
+func abnormalStrategy (stateCdrs []*CdrState) int8 {
 	log.Println("[WARN]","执行异常条数策略部分")
 
 	// 异常数据发生条数
-	abnormalCount := big.NewInt(0)
-	for _, stateCdr := range stateCdrs {
+	abnormalCount := int8(0)
+	// 倒序遍历获取是或否连续异常
+	for i := (len(stateCdrs) - 1); i >=0; i-- {
+		stateCdr := stateCdrs[i]
 		if !stateCdr.isNormal {
-			abnormalCount = abnormalCount.Add(abnormalCount,big.NewInt(1))
+			abnormalCount ++
+		} else {
+			break
 		}
 	}
+	log.Println("[INFO]","发生连续异常数据条数有：",abnormalCount)
 	return abnormalCount
 }
 
@@ -154,7 +160,7 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 				shutDownTime := resultMap["shutDownTime"]
 
 				// 默认正常的bit位
-				isNormal := bool(true)
+				isNormal := true
 				// 判断话务信息是否正常
 				if (strings.Compare(createTime,turnOnTime) == 0) && (strings.Compare(createTime,shutDownTime) == 0) {
 					// 异常数据
@@ -207,7 +213,10 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 								log.Println("byte",byteAlarm)
 								strAlarm := string(byteAlarm)
 								log.Println("[INFO]","strAlarm = ",strAlarm)
-								//sendAlarm(strAlarm)
+
+								// 发送告警
+								sendAlarm(strAlarm)
+
 								// 数据清空
 								cdrStateMap[key] = append(cdrStateMap[key][:0])
 							}
@@ -215,8 +224,18 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 							// 此条数据为异常数据时才会执行策略
 							if !isNormal {
 								abnormalCount := abnormalStrategy(stateCdrs)
-								if big.NewInt(30).Cmp(abnormalCount) != 1 {
+								if abnormalCount >= 10 {
 									// 异常条数告警
+									alarm := AlarmInfo{key,ABNORMAL_STRATEGY,string(abnormalCount)}
+									byteAlarm,err := json.Marshal(alarm)
+									if err != nil {
+										log.Println("[ERR]","err",err)
+									}
+									strAlarm := string(byteAlarm)
+									log.Println("[INFO]","strAlarm = ",strAlarm)
+
+									// 发送告警
+									sendAlarm(strAlarm)
 
 									// 数据清空
 									cdrStateMap[key] = append(cdrStateMap[key][:0])
