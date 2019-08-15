@@ -178,12 +178,14 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 					percentage := big.NewFloat(0.00)
 					// 首次加入数据
 					if cdrStateMap[key] == nil || (len(cdrStateMap[key]) == 0) {
+						log.Println("[WARN]","当前key首次加入记录！")
 						stateCdr := CdrState{isNormal,curTimestamp}
-						log.Println("stateCdr = ",stateCdr)
-						stateCdrs := [] *CdrState{}
+						stateCdrs := [] *CdrState{&stateCdr}
+						cdrStateMap = make(map[string] []*CdrState)
 						// 追加
-						cdrStateMap[key] = append(stateCdrs, &stateCdr)
+						cdrStateMap[key] = stateCdrs
 					} else {
+						log.Println()
 						stateCdr := CdrState{isNormal,curTimestamp}
 						// 追加并取出之前已存在数据
 						stateCdrs := append(cdrStateMap[key], &stateCdr)
@@ -200,8 +202,9 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 								alarm := AlarmInfo{key,TIME_STRATEGY,finalPercentage}
 								byteAlarm,err := json.Marshal(alarm)
 								if err != nil {
-									log.Println("[ERR]","转换json异常",err)
+									log.Println("[ERR]","err",err)
 								}
+								log.Println("byte",byteAlarm)
 								strAlarm := string(byteAlarm)
 								log.Println("[INFO]","strAlarm = ",strAlarm)
 								//sendAlarm(strAlarm)
@@ -214,8 +217,7 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 								abnormalCount := abnormalStrategy(stateCdrs)
 								if big.NewInt(30).Cmp(abnormalCount) != 1 {
 									// 异常条数告警
-									alarm := ""
-									sendAlarm(alarm)
+
 									// 数据清空
 									cdrStateMap[key] = append(cdrStateMap[key][:0])
 								}
