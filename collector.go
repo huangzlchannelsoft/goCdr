@@ -54,14 +54,14 @@ func readFileForLine (path string,fileName string,transmit CdrSend) error {
 			log.Println("[WARN] 这是不完整的一行记录")
 			log.Println("[WARN] ",line)
 			curLineNum --
-			lastLineNum = curLineNum
-			break
 		} else {
 			// 完整的一段
 			log.Println(line)
 			cdr := line
 			transmit(cdr)
 		}
+		// 赋值行号
+		lastLineNum = curLineNum
 	}
 	return nil
 }
