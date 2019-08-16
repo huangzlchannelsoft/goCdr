@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"encoding/json"
 	"time"
+	"os"
 )
 
 func init() {
@@ -21,6 +22,17 @@ const TIME_STRATEGY int8 = 0
 const ABNORMAL_STRATEGY int8 = 1
 // 百分号
 const TAGE  = string("%")
+// 文件扩展名
+const FILE_EXTENSION = string(".txt")
+// 换行符
+const NEWLINE_SYMBOL  = string("\r\n")
+// tab
+const TAB = string("\t")
+// 箭头符
+const ARROW_SYMBOL = string("-->")
+
+// cdr状态映射集
+var cdrStateMap = make(map[string] []*CdrState)
 
 // cdr状态结构体
 type CdrState struct {
@@ -40,8 +52,52 @@ type AlarmInfo struct {
 	value 			string
 }
 
-// cdr状态映射集
-var cdrStateMap = make(map[string] []*CdrState)
+// 将统计出的key信息写入文件
+func writeKeysInfo (path string,lineInfo string) string {
+	log.Println("[INFO]","将要写入文件内容为：",lineInfo)
+	now := time.Now()
+	year, month, day := now.Date()
+	hour := now.Hour()
+	minute := now.Minute()
+	Second := now.Second()
+
+	nowStr := fmt.Sprintf("%d-%d-%d %d:%d:%d", year, month, day,hour, minute, Second)
+	fileNameStr := fmt.Sprintf("%d%d%d", year, month, day) + FILE_EXTENSION
+	filePath := path + "/" + fileNameStr
+
+	// 文件是或否存在
+	_,err := os.Stat(filePath)
+	if err == nil {
+		// 存在的情况下追加
+		log.Println("[WARN]","存在的情况下追加")
+		file,err2 := os.OpenFile(filePath,os.O_APPEND,os.ModeAppend)
+		defer file.Close()
+		if err2 != nil {
+			log.Println("[ERR]",err2)
+		} else {
+			file.WriteString(nowStr)
+			file.WriteString(TAB)
+			file.WriteString(lineInfo)
+			file.WriteString(NEWLINE_SYMBOL)
+		}
+	} else {
+		// 不存在创建写入
+		log.Println("[WARN]","不存在创建写入")
+		file,err := os.Create(path + "/" + fileNameStr)
+		defer file.Close()
+		if err != nil {
+			log.Println("[ERR]",err)
+		} else {
+			file.WriteString(nowStr)
+			file.WriteString(TAB)
+			file.WriteString(lineInfo)
+			file.WriteString(NEWLINE_SYMBOL)
+		}
+	}
+	return fileNameStr
+}
+
+
 
 // 分割解析cdr数据
 func parsingCdr (cdr string) map[string] string {
@@ -195,9 +251,10 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 						// 是否达到一定时间策略
 						if (curTimestamp - firstCdrCurTime) >= (gCfg.TimeMinInterva * 60) {
 							percentage = timeStrategy(stateCdrs)
+							// 百分比
+							finalPercentage := fmt.Sprint("%0.2f",percentage.Mul(percentage,big.NewFloat(100))) + TAGE
 							// 是否大于告警阈值
 							if big.NewFloat(gCfg.Percentage).Cmp(percentage) != 1 {
-								finalPercentage := fmt.Sprint("%0.2f",percentage.Mul(percentage,big.NewFloat(100))) + TAGE
 								// 告警
 								alarm := AlarmInfo{key,TIME_STRATEGY,finalPercentage}
 								byteAlarm,err := json.Marshal(alarm)
@@ -210,7 +267,9 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 								// 发送告警
 								sendAlarm(strAlarm)
 							}
+							keyInfoLine := key + ARROW_SYMBOL + finalPercentage
 							// 数据key存储
+							writeKeysInfo(gCfg.StrategyInfoPath,keyInfoLine)
 
 							// 数据清空
 							cdrStateMap[key] = append(cdrStateMap[key][:0])
@@ -232,7 +291,9 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 									sendAlarm(strAlarm)
 
 									// 获取key存储
-
+									keyInfoLine := key + ARROW_SYMBOL + string(abnormalCount)
+									// 数据key存储
+									writeKeysInfo(gCfg.StrategyInfoPath,keyInfoLine)
 
 									// 数据清空
 									cdrStateMap[key] = append(cdrStateMap[key][:0])

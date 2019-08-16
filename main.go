@@ -15,26 +15,27 @@ import (
 )
 
 var (
-	as             = flag.String("as", "", "run as client || server || singleton.")
-	cdrPath        = flag.String("cdrPath", "", "cdr filepath that collected from.")
-	svrAddr        = flag.String("svrAddr", "", "ip:port.")
-	alarmUri       = flag.String("alarmUri", "", "send alarm via...")
-	pushGateWayUri = flag.String("pushGateWayUri", "", "send alarm via...")
-	phoneIspUri    = flag.String("phoneIspUri", "", "check phone's area via...")
-	phoneProUri    = flag.String("phoneProUri", "", "check phone's manul via...")
+as             			= flag.String("as", "", "run as client || server || singleton.")
+	cdrPath        		= flag.String("cdrPath", "", "cdr filepath that collected from.")
+	svrAddr        		= flag.String("svrAddr", "", "ip:port.")
+	alarmUri       		= flag.String("alarmUri", "", "send alarm via...")
+	pushGateWayUri 		= flag.String("pushGateWayUri", "", "send alarm via...")
+	phoneIspUri    		= flag.String("phoneIspUri", "", "check phone's area via...")
+	phoneProUri    		= flag.String("phoneProUri", "", "check phone's manul via...")
 )
 
 type Config struct {
-	TimeMinInterva	int64	`yaml:"timeMinInterva"`
-	CdrCommaTotal 	int 	`yaml:"cdrCommaTotal"`
-	FixedLineReg 	string 	`yaml:"fixedLineReg"`
-	ConAbnormal 	int		`yaml:"conAbnormal"`
-	Percentage      float64 `yaml:"percentage"`
-	MobileReg 		string 	`yaml:"mobileReg"`
-	Version 		string 	`yaml:"version"`
-	Logfile 		bool   	`yaml:"logfile"`
-	Bakdays 		int    	`yaml:"bakdays"`
-	Nid     		string 	`yaml:"nid"`
+	StrategyInfoPath 	string 	`yaml:"strategyInfoPath"`
+	TimeMinInterva		int64	`yaml:"timeMinInterva"`
+	CdrCommaTotal 		int 	`yaml:"cdrCommaTotal"`
+	FixedLineReg 		string 	`yaml:"fixedLineReg"`
+	ConAbnormal 		int		`yaml:"conAbnormal"`
+	Percentage      	float64 `yaml:"percentage"`
+	MobileReg 			string 	`yaml:"mobileReg"`
+	Version 			string 	`yaml:"version"`
+	Logfile 			bool   	`yaml:"logfile"`
+	Bakdays 			int    	`yaml:"bakdays"`
+	Nid     			string 	`yaml:"nid"`
 }
 
 var gCfg Config
