@@ -25,7 +25,12 @@ var (
 )
 
 type Config struct {
+	TimeMinInterva	int64	`yaml:"timeMinInterva"`
 	CdrCommaTotal 	int 	`yaml:"cdrCommaTotal"`
+	FixedLineReg 	string 	`yaml:"fixedLineReg"`
+	ConAbnormal 	int		`yaml:"conAbnormal"`
+	Percentage      float64 `yaml:"percentage"`
+	MobileReg 		string 	`yaml:"mobileReg"`
 	Version 		string 	`yaml:"version"`
 	Logfile 		bool   	`yaml:"logfile"`
 	Bakdays 		int    	`yaml:"bakdays"`
