@@ -28,8 +28,8 @@ const FILE_EXTENSION = string(".txt")
 const NEWLINE_SYMBOL  = string("\r\n")
 // tab
 const TAB = string("\t")
-// 箭头符
-const ARROW_SYMBOL = string("-->")
+// 符
+const ARROW_SYMBOL = string(" ")
 
 // cdr状态映射集
 var cdrStateMap = make(map[string] []*CdrState)
@@ -123,14 +123,6 @@ func parsingCdr (cdr string) map[string] string {
 	return nil
 }
 
-func getKeys (callNumber string,calledNumber string) []string {
-	log.Println("[INFO]","主叫号码：",callNumber,"被叫号码：",calledNumber)
-
-	keys := []string{"联通|上海|上海","联通|上海","联通"}
-
-	return keys
-}
-
 // 校验被叫号码
 func checkCalledNumber (calledNumber string) bool {
 	// 校验标示
@@ -220,17 +212,18 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 				log.Println("isNormal = ",isNormal)
 
 				// 获取phoneKeys
-				keys := getKeys(callNumber,calledNumber)
-				log.Println("info = ",keys)
+				phonePro := GetPhoneProperty(callNumber,calledNumber)
+
+				// 发送监控系统
+				AddCallStat(phonePro,isNormal)
+
+				keys := []string{phonePro.province,phonePro.productor,phonePro.isp,phonePro.area}
 
 				// 当前时间戳
 				curTimestamp := time.Now().Unix()
 				log.Println("[INFO]","curTimestamp = ",curTimestamp)
 				for _, key := range keys {
 					log.Println("操作状态key值为：",key)
-
-					// 发送至监控系统
-					//sendCdrState(key,isNormal)
 
 					// 告警百分比
 					percentage := big.NewFloat(0.00)
@@ -252,7 +245,7 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 						if (curTimestamp - firstCdrCurTime) >= (gCfg.TimeMinInterva * 60) {
 							percentage = timeStrategy(stateCdrs)
 							// 百分比
-							finalPercentage := fmt.Sprint("%0.2f",percentage.Mul(percentage,big.NewFloat(100))) + TAGE
+							finalPercentage := fmt.Sprintf("%0.2f",percentage.Mul(percentage,big.NewFloat(100))) + TAGE
 							// 是否大于告警阈值
 							if big.NewFloat(gCfg.Percentage).Cmp(percentage) != 1 {
 								// 告警

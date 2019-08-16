@@ -21,7 +21,7 @@ func init() {
 
 // 单行读取文件
 func readFileForLine (path string,fileName string,transmit CdrSend) error {
-	log.Printf("[INFO] 接收到文件路径：<%d>,文件名称为：[%d]",path,fileName)
+	log.Printf("[INFO] 接收到文件路径：",path,",文件名称为：",fileName)
 	// 开启文件流
 	file,err := os.Open(path)
 	if err != nil {
@@ -39,7 +39,7 @@ func readFileForLine (path string,fileName string,transmit CdrSend) error {
 	// 逐行读取
 	s := bufio.NewScanner(file)
 	lineNums := lastLineNum;
-	log.Printf("[INFO] lineNums = %d",lineNums)
+	log.Printf("[INFO] lineNums = ",lineNums)
 
 	// 当前行号
 	curLineNum := int32(0)
@@ -74,13 +74,13 @@ func CollectCdr(path string, transmit CdrSend) {
 		select {
 		case <-ticker.C:
 			//check new cdr
-			log.Printf("[INFO] 收集cdr文件根目录为：<%d>",path)
+			log.Printf("[INFO] 收集cdr文件根目录为：",path)
 			// 获取文件
 			err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-				log.Printf("[INFO] 遍历得到路径：<%d>",path)
+				log.Printf("[INFO] 遍历得到路径：",path)
 				if !info.IsDir() {
 					fileName := info.Name()
-					log.Printf("[WARN] fileName = %d,lastFileName = %d",fileName,lastFileName)
+					log.Printf("[WARN] fileName = ",fileName,",lastFileName =",lastFileName)
 
 					// 规避首次文件名为空 此次文件名去上次文件不是同一文件
 					if lastFileName != "" && !strings.EqualFold(fileName,lastFileName)  {
@@ -91,7 +91,7 @@ func CollectCdr(path string, transmit CdrSend) {
 						fatherPath1 := path[:fIndex1]
 						fIndex2 := strings.LastIndex(fatherPath1,"\\")
 						fatherPath2 := fatherPath1[:fIndex2]
-						log.Printf("父目录地址为: <%d>",fatherPath2)
+						log.Printf("父目录地址为: ",fatherPath2)
 
 						err = readFileForLine(fatherPath2 + "\\" + lastFileName,lastFileName,transmit)
 						if err != nil {
