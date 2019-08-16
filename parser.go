@@ -168,12 +168,16 @@ func timeStrategy (stateCdrs []*CdrState) *big.Float {
 	abnormalCount := big.NewFloat(0.00)
 	cdrsLen := big.NewFloat(float64(len(stateCdrs)))
 
-	// 遍历异常条数
-	for _,stateCdr := range stateCdrs {
-		if !stateCdr.isNormal {
-			abnormalCount = abnormalCount.Add(abnormalCount,big.NewFloat(1))
+	// 至少达到一定条数再触发计算
+	if len(stateCdrs) >= gCfg.ConAbnormal {
+		// 遍历异常条数
+		for _,stateCdr := range stateCdrs {
+			if !stateCdr.isNormal {
+				abnormalCount = abnormalCount.Add(abnormalCount,big.NewFloat(1))
+			}
 		}
 	}
+
 	percentage = percentage.Quo(abnormalCount,cdrsLen)
 	log.Println("[INFO]","时间策略计算值为：",percentage)
 	return percentage
