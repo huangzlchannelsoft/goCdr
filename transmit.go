@@ -34,13 +34,17 @@ func TransmitCdr(mode string, addr string) {
 		}
 
 		connected := func(conn net.Conn) {
+			log.Println("connected to ", conn.RemoteAddr())
 			defer conn.Close()
 
-			cdr := RecvCdr()
-			_, err := conn.Write([]byte(cdr))
+			for {
+				cdr := RecvCdr()
+				_, err := conn.Write([]byte(cdr))
 
-			if err != nil { //TODO: write cdr error
-				log.Println("[Err] write cdr.", err.Error())
+				if err != nil { //TODO: write cdr error
+					log.Println("[Err] write cdr.", err.Error())
+					break
+				}
 			}
 		}
 
@@ -58,46 +62,54 @@ func TransmitCdr(mode string, addr string) {
 	} else if *as == "server" {
 
 		connected := func(conn net.Conn) {
+			log.Println("connected to ", conn.RemoteAddr())
 			defer conn.Close()
 
 			//split tcp stream
-			totel := 0
-			split := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-				if totel < 14 {
-					totel = bytes.Count(data, []byte{','})
-				}
-
-				if totel >= 14 {
-					c := 14
-					l := 0
-					p := data
-					for c > 0 {
-						n := bytes.IndexByte(p, ',') + 1
-						p = p[n:]
-						l += n
-						c--
-						totel--
+			if true {
+				totel := 0
+				split := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+					if totel < 14 {
+						totel = bytes.Count(data, []byte{','})
 					}
-					return l, data[:l], nil
-				} else if atEOF {
-					return 0, nil, io.EOF
+
+					if totel >= 14 {
+						c := 14
+						l := 0
+						p := data
+						for c > 0 {
+							n := bytes.IndexByte(p, ',') + 1
+							p = p[n:]
+							l += n
+							c--
+							totel--
+						}
+						return l, data[:l], nil
+					} else if atEOF {
+						return 0, nil, io.EOF
+					}
+					return 0, nil, nil
 				}
-				return 0, nil, io.EOF
+
+				scanner := bufio.NewScanner(conn)
+				scanner.Split(split)
+				for scanner.Scan() {
+					cdr := scanner.Text()
+					SendCdr(cdr)
+					//log.Println(cdr)
+				}
 			}
 
-			scanner := bufio.NewScanner(conn)
-			scanner.Split(split)
-			for scanner.Scan() {
-				SendCdr(scanner.Text())
-			}
-
-			// buf := make([]byte, 1000)
-			// n, err := conn.Read(buf)
-			// if err != nil {
-			// 	log.Println("[Err] read cdr.", err.Error())
+			// for {
+			// 	buf := make([]byte, 1000)
+			// 	n, err := conn.Read(buf)
+			// 	if err != nil {
+			// 		log.Println("[Err] read cdr.", err.Error())
+			// 		break
+			// 	}
+			// 	//log.Println(string(buf[:n]))
+			// 	SendCdr(string(buf[:n]))
 			// }
-
-			// SendCdr(string(buf[:n]))
 		}
 
 		listener, err := net.Listen("tcp4", addr)
@@ -105,6 +117,7 @@ func TransmitCdr(mode string, addr string) {
 			log.Panic("[Err] transmit.", err.Error())
 		}
 		for {
+			log.Println("listen to ", addr)
 			conn, err := listener.Accept()
 			if err != nil {
 				log.Panic("[Err] transmit.", err.Error())
