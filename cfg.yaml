@@ -2,4 +2,19 @@ version: 1.0.0.0
 logfile: true
 bakdays: 60
 nid:     jsdx26
+
+# cdr数据逗号间隔个数
 cdrCommaTotal: 14
+
+# 号码匹配正则
+mobileReg: ^[1][3-9][0-9]{9}$
+fixedLineReg: ^0\\d{2,3}-?\\d{7,8}$
+
+# 检测最小间隔为 min
+timeMinInterva: 5
+# 连续异常告警个数
+conAbnormal: 10
+# 告警占比 0.5 -> 50%
+percentage: 0.5
+# 策略信息保存地址
+strategyInfoPath: /home/umg/cdr/keysInfo

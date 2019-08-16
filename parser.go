@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"encoding/json"
 	"time"
+	"os"
 )
 
 func init() {
@@ -19,7 +20,19 @@ func init() {
 const TIME_STRATEGY int8 = 0
 // 异常条数策略
 const ABNORMAL_STRATEGY int8 = 1
+// 百分号
+const TAGE  = string("%")
+// 文件扩展名
+const FILE_EXTENSION = string(".txt")
+// 换行符
+const NEWLINE_SYMBOL  = string("\r\n")
+// tab
+const TAB = string("\t")
+// 箭头符
+const ARROW_SYMBOL = string("-->")
 
+// cdr状态映射集
+var cdrStateMap = make(map[string] []*CdrState)
 
 // cdr状态结构体
 type CdrState struct {
@@ -39,8 +52,52 @@ type AlarmInfo struct {
 	value 			string
 }
 
-// cdr状态映射集
-var cdrStateMap = make(map[string] []*CdrState)
+// 将统计出的key信息写入文件
+func writeKeysInfo (path string,lineInfo string) string {
+	log.Println("[INFO]","将要写入文件内容为：",lineInfo)
+	now := time.Now()
+	year, month, day := now.Date()
+	hour := now.Hour()
+	minute := now.Minute()
+	Second := now.Second()
+
+	nowStr := fmt.Sprintf("%d-%d-%d %d:%d:%d", year, month, day,hour, minute, Second)
+	fileNameStr := fmt.Sprintf("%d%d%d", year, month, day) + FILE_EXTENSION
+	filePath := path + "/" + fileNameStr
+
+	// 文件是或否存在
+	_,err := os.Stat(filePath)
+	if err == nil {
+		// 存在的情况下追加
+		log.Println("[WARN]","存在的情况下追加")
+		file,err2 := os.OpenFile(filePath,os.O_APPEND,os.ModeAppend)
+		defer file.Close()
+		if err2 != nil {
+			log.Println("[ERR]",err2)
+		} else {
+			file.WriteString(nowStr)
+			file.WriteString(TAB)
+			file.WriteString(lineInfo)
+			file.WriteString(NEWLINE_SYMBOL)
+		}
+	} else {
+		// 不存在创建写入
+		log.Println("[WARN]","不存在创建写入")
+		file,err := os.Create(path + "/" + fileNameStr)
+		defer file.Close()
+		if err != nil {
+			log.Println("[ERR]",err)
+		} else {
+			file.WriteString(nowStr)
+			file.WriteString(TAB)
+			file.WriteString(lineInfo)
+			file.WriteString(NEWLINE_SYMBOL)
+		}
+	}
+	return fileNameStr
+}
+
+
 
 // 分割解析cdr数据
 func parsingCdr (cdr string) map[string] string {
@@ -80,11 +137,8 @@ func checkCalledNumber (calledNumber string) bool {
 	flag := false
 
 	// 手机号固话校验正则表达式
-	mobileRegular := "^((13[0-9])|(14[5,7])|(15[0-3,5-9])|(17[0,3,5-8])|(18[0-9])|166|198|199|(147))\\d{8}$"
-	fixedLineRegular := "^0\\d{2,3}-?\\d{7,8}$"
-
-	isornoMobile,_ := regexp.MatchString(mobileRegular, calledNumber)
-	isornoFixed,_ := regexp.MatchString(fixedLineRegular, calledNumber)
+	isornoMobile,_ := regexp.MatchString(gCfg.MobileReg, calledNumber)
+	isornoFixed,_ := regexp.MatchString(gCfg.FixedLineReg, calledNumber)
 
 	// 判断是否合法的手机号或固话
 	if isornoMobile || isornoFixed {
@@ -94,11 +148,11 @@ func checkCalledNumber (calledNumber string) bool {
 }
 
 // 连续异常条数状态策略
-func abnormalStrategy (stateCdrs []*CdrState) int8 {
+func abnormalStrategy (stateCdrs []*CdrState) int {
 	log.Println("[WARN]","执行异常条数策略部分")
 
 	// 异常数据发生条数
-	abnormalCount := int8(0)
+	abnormalCount := int(0)
 	// 倒序遍历获取是或否连续异常
 	for i := (len(stateCdrs) - 1); i >=0; i-- {
 		stateCdr := stateCdrs[i]
@@ -122,17 +176,14 @@ func timeStrategy (stateCdrs []*CdrState) *big.Float {
 	abnormalCount := big.NewFloat(0.00)
 	cdrsLen := big.NewFloat(float64(len(stateCdrs)))
 
-	// 一定时间必须达到指定条数才会计算告警值
-	if len(stateCdrs) >= 200 {
-		// 遍历异常条数
-		for _,stateCdr := range stateCdrs {
-			if !stateCdr.isNormal {
-				abnormalCount = abnormalCount.Add(abnormalCount,big.NewFloat(1))
-			}
+	// 遍历异常条数
+	for _,stateCdr := range stateCdrs {
+		if !stateCdr.isNormal {
+			abnormalCount = abnormalCount.Add(abnormalCount,big.NewFloat(1))
 		}
-		percentage = percentage.Quo(abnormalCount,cdrsLen)
-		log.Println("percentage = ",percentage)
 	}
+	percentage = percentage.Quo(abnormalCount,cdrsLen)
+	log.Println("[INFO]","时间策略计算值为：",percentage)
 	return percentage
 }
 
@@ -198,33 +249,35 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 						firstCdrCurTime := stateCdrs[0].curTimestamp
 
 						// 是否达到一定时间策略
-						if (curTimestamp - firstCdrCurTime) >= (5 * 60) {
+						if (curTimestamp - firstCdrCurTime) >= (gCfg.TimeMinInterva * 60) {
 							percentage = timeStrategy(stateCdrs)
-							log.Println("[INFO]","时间策略计算返回值为：",percentage)
+							// 百分比
+							finalPercentage := fmt.Sprint("%0.2f",percentage.Mul(percentage,big.NewFloat(100))) + TAGE
 							// 是否大于告警阈值
-							if big.NewFloat(0.5).Cmp(percentage) != 1 {
-								finalPercentage := fmt.Sprint("%0.2f",percentage.Mul(percentage,big.NewFloat(100))) + "%"
+							if big.NewFloat(gCfg.Percentage).Cmp(percentage) != 1 {
 								// 告警
 								alarm := AlarmInfo{key,TIME_STRATEGY,finalPercentage}
 								byteAlarm,err := json.Marshal(alarm)
 								if err != nil {
 									log.Println("[ERR]","err",err)
 								}
-								log.Println("byte",byteAlarm)
 								strAlarm := string(byteAlarm)
 								log.Println("[INFO]","strAlarm = ",strAlarm)
 
 								// 发送告警
 								sendAlarm(strAlarm)
-
-								// 数据清空
-								cdrStateMap[key] = append(cdrStateMap[key][:0])
 							}
+							keyInfoLine := key + ARROW_SYMBOL + finalPercentage
+							// 数据key存储
+							writeKeysInfo(gCfg.StrategyInfoPath,keyInfoLine)
+
+							// 数据清空
+							cdrStateMap[key] = append(cdrStateMap[key][:0])
 						} else {
 							// 此条数据为异常数据时才会执行策略
 							if !isNormal {
 								abnormalCount := abnormalStrategy(stateCdrs)
-								if abnormalCount >= 10 {
+								if abnormalCount >= gCfg.ConAbnormal {
 									// 异常条数告警
 									alarm := AlarmInfo{key,ABNORMAL_STRATEGY,string(abnormalCount)}
 									byteAlarm,err := json.Marshal(alarm)
@@ -236,6 +289,11 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 
 									// 发送告警
 									sendAlarm(strAlarm)
+
+									// 获取key存储
+									keyInfoLine := key + ARROW_SYMBOL + string(abnormalCount)
+									// 数据key存储
+									writeKeysInfo(gCfg.StrategyInfoPath,keyInfoLine)
 
 									// 数据清空
 									cdrStateMap[key] = append(cdrStateMap[key][:0])
