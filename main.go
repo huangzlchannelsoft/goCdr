@@ -15,13 +15,15 @@ import (
 )
 
 var (
-as             			= flag.String("as", "", "run as client || server || singleton.")
-	cdrPath        		= flag.String("cdrPath", "", "cdr filepath that collected from.")
-	svrAddr        		= flag.String("svrAddr", "", "ip:port.")
-	alarmUri       		= flag.String("alarmUri", "", "send alarm via...")
-	pushGateWayUri 		= flag.String("pushGateWayUri", "", "send alarm via...")
-	phoneIspUri    		= flag.String("phoneIspUri", "", "check phone's area via...")
-	phoneProUri    		= flag.String("phoneProUri", "", "check phone's manul via...")
+	as             = flag.String("as", "", "run as client || server || singleton.")
+	cdrPath        = flag.String("cdrPath", "", "cdr filepath that collected from.")
+	svrAddr        = flag.String("svrAddr", "", "ip:port.")
+	alarmUri       = flag.String("alarmUri", "", "send alarm via...")
+	pushGateWayUri = flag.String("pushGateWayUri", "", "send alarm via...")
+	ispTxtFile     = flag.String("ispTxtFile", "phone_area_operators.txt", "phone mapto isp")
+	proXlsxFile    = flag.String("proXlsxFile", "NumberShow-201908.xlsx", "phone mapto productor")
+	phoneIspUri    = flag.String("phoneIspUri", "", "check phone's area via...")
+	phoneProUri    = flag.String("phoneProUri", "", "check phone's productor via...")
 )
 
 type Config struct {
@@ -72,6 +74,7 @@ func main() {
 	flag.Parse()
 
 	SetPhonePropertyUri(*phoneIspUri, *phoneProUri)
+	SetPhonePropertyFile(*ispTxtFile, *proXlsxFile)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go TrickerDeamon(ctx)

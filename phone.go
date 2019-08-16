@@ -2,13 +2,16 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
-	//"github.com/plandem/xlsx"
+
+	"github.com/plandem/xlsx"
 )
 
 const (
@@ -24,16 +27,39 @@ type PhoneProperty struct {
 }
 
 var (
-	phone2Property  map[string]*PhoneProperty
-	phoneHttpClient = http.Client{Timeout: time.Second * 5}
-	_phoneIspUri    = ""
-	_phoneProUri    = ""
+	phone2Productor     map[string]*PhoneProperty
+	phone2Isp           map[string]*PhoneProperty
+	code2Area           map[string]*PhoneProperty
+	phoneHttpClient     = http.Client{Timeout: time.Second * 5}
+	_phoneIspUri        = ""
+	_phoneProUri        = ""
+	_phoneProductorXlsx = "NumberShow-201908.xlsx"
+	_phoneIspTxt        = "phone_area_operators.txt"
+	preMobileMinLen     = 11
+	preMobileMaxLen     = 0
+	preFixPhoneMinLen   = 3
+	preFixPhoneMaxLen   = 4
 )
 
 func init() {
 	log.Println("init phone!")
 
-	LoadPhoneProperty()
+	phone2Productor = make(map[string]*PhoneProperty)
+	phone2Isp = make(map[string]*PhoneProperty)
+	code2Area = make(map[string]*PhoneProperty)
+
+	//LoadPhoneProperty()
+}
+func SetPhonePropertyFile(ispTxtFile string, proXlsxFile string) {
+	if proXlsxFile != "" {
+		_phoneProductorXlsx = proXlsxFile
+	}
+	if ispTxtFile != "" {
+		_phoneIspTxt = ispTxtFile
+	}
+
+	LoadExcelPhoneProductor(_phoneProductorXlsx)
+	LoadTxtPhoneIsp(_phoneIspTxt)
 }
 
 func SetPhonePropertyUri(ispUri string, proUri string) {
@@ -42,18 +68,13 @@ func SetPhonePropertyUri(ispUri string, proUri string) {
 }
 
 func LoadPhoneProperty() {
-	phone2Property = make(map[string]*PhoneProperty)
+	phone2Productor = make(map[string]*PhoneProperty)
 
 	kv := func(k, v []byte) {
 		// log.Printf("key=%s, value=%s\n", k, v)
 
 		p := strings.Split(string(v), "_")
-		phone2Property[string(k)] = &PhoneProperty{
-			productor: p[0],
-			isp:       p[1],
-			province:  p[2],
-			area:      p[3],
-		}
+		phone2Productor[string(k)] = &PhoneProperty{p[0], p[1], p[2], p[3]}
 	}
 	boltEnumKeyValue(PhonePropertyDB, PhonePropertyBulk, kv)
 }
@@ -85,77 +106,154 @@ func LoadPhoneProperty() {
 /*
 excel表结构 ： 话批 客户名称 省份 地市 电话号码 号码开通时间	号码类型 号码状态
 */
-// func LoadExcelPhoneProperty(filepath string) {
-// 	xl, err := xlsx.Open(filepath)
-// 	if err != nil {
-// 		log.Println("[Err]", err.Error())
-// 		return
-// 	}
-// 	defer xl.Close()
+func LoadExcelPhoneProductor(filepath string) {
+	xl, err := xlsx.Open(filepath)
+	if err != nil {
+		log.Println("[Err]", err.Error())
+		return
+	}
+	defer xl.Close()
 
-// 	sht := xl.Sheet(0, 1)
-// 	_, r := sht.Dimension()
-// 	for j := 1; j < r; j++ {
-// 		// log.Println(sht.Cell(0, j).Value(),
-// 		// 	sht.Cell(2, j).Value(),
-// 		// 	sht.Cell(3, j).Value(),
-// 		// 	sht.Cell(4, j).Value())
-// 		productor := sht.Cell(0, j).Value()
-// 		isp := ""
-// 		province := sht.Cell(1, j).Value()
-// 		area := sht.Cell(2, j).Value()
-// 		number := sht.Cell(3, j).Value()
+	sht := xl.Sheet(0, 1)
+	_, r := sht.Dimension()
+	for j := 1; j < r; j++ {
+		// log.Println(sht.Cell(0, j).Value(),
+		// 	sht.Cell(2, j).Value(),
+		// 	sht.Cell(3, j).Value(),
+		// 	sht.Cell(4, j).Value())
+		productor := sht.Cell(0, j).Value()
+		isp := ""
+		province := sht.Cell(2, j).Value()
+		area := sht.Cell(3, j).Value()
+		number := sht.Cell(4, j).Value()
 
-// 		kv := func() ([]byte, []byte) {
-// 			return []byte(number), []byte(PhoneProperty2Key(productor, isp, province, area))
-// 		}
-// 		boltWriteKeyValue(PhonePropertyDB, PhonePropertyBulk, kv)
-// 	}
-// }
+		// log.Println(number, productor, isp, province, area)
+		phone2Productor[number] = &PhoneProperty{productor, isp, province, area}
+		// kv := func() ([]byte, []byte) {
+		// 	return []byte(number), []byte(PhoneProperty2Key(productor, isp, province, area))
+		// }
+		// boltWriteKeyValue(PhonePropertyDB, PhonePropertyBulk, kv)
+	}
+}
+
+/*
+txt表结构 ：
+*/
+func LoadTxtPhoneIsp(filepath string) {
+	file, err := os.Open(filepath)
+	if err != nil {
+		log.Panic("[Err] LoadTxtPhoneIsp.", err.Error())
+	}
+	defer file.Close()
+
+	count := 0
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		//1,1340200,上海,上海,021,中国移动
+		// var idx, number, province, area, code, isp string
+		s := strings.Split(scanner.Text(), ",")
+		number := s[1]
+		code := s[4]
+		//s := scanner.Text()
+		//fmt.Sscanf(s, "%s,%s,%s,%s,%s,%s", idx, number, province, area, code, isp)
+		phone2Isp[number] = &PhoneProperty{"", s[5], s[2], s[3]}
+		code2Area[code] = &PhoneProperty{"", "固话", s[2], s[3]}
+
+		l := len(number)
+		if l < preMobileMinLen {
+			preMobileMinLen = l
+		}
+		if l > preMobileMaxLen {
+			preMobileMaxLen = l
+		}
+
+		count++
+	}
+	log.Println(count, preMobileMinLen, preMobileMaxLen)
+}
 
 /*
 return productor_isp_province_area
 */
-func GetPhoneProperty(na []string, nb []string) []string {
+func _getPhoneIsp(number string) *PhoneProperty {
+	if strings.HasPrefix(number, "0") {
+		for i := preFixPhoneMaxLen; i >= preFixPhoneMinLen; i-- {
+			pp := code2Area[number[:i]]
+			if pp != nil {
+				return pp
+			}
+		}
+	} else {
+		for i := preMobileMaxLen; i >= preMobileMinLen; i-- {
+			pp := phone2Isp[number[:i]]
+			if pp != nil {
+				return pp
+			}
+		}
+	}
+	return nil
+}
+func GetPhoneProperty(na, nb string) *PhoneProperty {
+	pp := &PhoneProperty{"", "", "", ""}
+
+	pa := phone2Productor[na]
+	pb := _getPhoneIsp(nb)
+
+	if pa != nil {
+		pp.productor = pa.productor
+	}
+
+	if pb != nil {
+		pp.isp = pb.isp
+		pp.province = pb.province
+		pp.area = pb.area
+	}
+
+	return pp
+}
+
+func UpdatePhoneProperty(na []string, nb []string) {
 	requestPhoneProperty_(na, _phoneProUri)
 	requestPhoneProperty_(nb, _phoneIspUri)
 
-	if len(na) != len(nb) {
-		log.Printf("[Err] GetPhoneProperty.%d!=%d\n", len(na), len(nb))
-	} else {
-		var keys []string
+	// if len(na) != len(nb) {
+	// 	log.Printf("[Err] GetPhoneProperty.%d!=%d\n", len(na), len(nb))
+	// } else {
+	// 	var keys []*PhoneProperty
 
-		productor := ""
-		isp := ""
-		province := ""
-		area := ""
-		l := len(na)
-		for i := 0; i < l; i++ {
-			pa := phone2Property[na[i]]
-			pb := phone2Property[nb[i]]
+	// 	productor := ""
+	// 	isp := ""
+	// 	province := ""
+	// 	area := ""
+	// 	l := len(na)
+	// 	for i := 0; i < l; i++ {
+	// 		pa := phone2Property[na[i]]
+	// 		pb := phone2Property[nb[i]]
 
-			if pa == nil {
-				productor = ""
-			} else {
-				productor = pa.productor
-			}
+	// 		if pa == nil {
+	// 			productor = ""
+	// 		} else {
+	// 			productor = pa.productor
+	// 		}
 
-			if pb == nil {
-				isp = ""
-				province = ""
-				area = ""
-			} else {
-				isp = pb.isp
-				province = pb.province
-				area = pb.area
-			}
+	// 		if pb == nil {
+	// 			isp = ""
+	// 			province = ""
+	// 			area = ""
+	// 		} else {
+	// 			isp = pb.isp
+	// 			province = pb.province
+	// 			area = pb.area
+	// 		}
 
-			keys = append(keys, PhoneProperty2Key(productor, isp, province, area))
-		}
-		return keys
-	}
+	// 		pp := &PhoneProperty{productor, isp, province, area}
+	// 		keys = append(keys, pp)
+	// 	}
+	// 	return keys
+	// }
 
-	return nil
+	// return nil
 }
 
 /*http request phone-property
@@ -207,20 +305,16 @@ func PhonePropertyParser(data []byte) {
 				province := pp.Property[cursor].Province
 				area := pp.Property[cursor].Area
 
-				phone2Property[number] = &PhoneProperty{
-					productor: productor,
-					isp:       isp,
-					province:  province,
-					area:      area,
-				}
+				pp := &PhoneProperty{productor, isp, province, area}
+				phone2Productor[number] = pp
 				cursor++
 
 				log.Println(number, productor, isp, province, area)
 
-				return []byte(number), []byte(PhoneProperty2Key(productor, isp, province, area))
+				return []byte(number), []byte(PhoneProperty2Key(pp))
 			}
 
-			boltBatchWriteKeyValue("phoneProperty.db", "phone2property", kv)
+			boltBatchWriteKeyValue(PhonePropertyDB, PhonePropertyBulk, kv)
 		} else {
 			log.Println("[Err] Request PhoneProperty", string(data))
 		}
@@ -234,7 +328,7 @@ func requestPhoneProperty_(na []string, uri string) {
 	count := 0
 	buf.WriteString("{\"numbers\":[")
 	for _, a := range na {
-		pp := phone2Property[a]
+		pp := phone2Productor[a]
 		if pp == nil {
 			if count > 0 {
 				buf.WriteString(",")
