@@ -2,6 +2,9 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
+	"io"
 	"log"
 	"net"
 )
@@ -53,17 +56,48 @@ func TransmitCdr(mode string, addr string) {
 			}
 		}
 	} else if *as == "server" {
-		buf := make([]byte, 1000)
 
 		connected := func(conn net.Conn) {
 			defer conn.Close()
 
-			n, err := conn.Read(buf)
-			if err != nil {
-				log.Println("[Err] read cdr.", err.Error())
+			//split tcp stream
+			totel := 0
+			split := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+				if totel < 14 {
+					totel = bytes.Count(data, []byte{','})
+				}
+
+				if totel >= 14 {
+					c := 14
+					l := 0
+					p := data
+					for c > 0 {
+						n := bytes.IndexByte(p, ',') + 1
+						p = p[n:]
+						l += n
+						c--
+						totel--
+					}
+					return l, data[:l], nil
+				} else if atEOF {
+					return 0, nil, io.EOF
+				}
+				return 0, nil, io.EOF
 			}
 
-			SendCdr(string(buf[:n]))
+			scanner := bufio.NewScanner(conn)
+			scanner.Split(split)
+			for scanner.Scan() {
+				SendCdr(scanner.Text())
+			}
+
+			// buf := make([]byte, 1000)
+			// n, err := conn.Read(buf)
+			// if err != nil {
+			// 	log.Println("[Err] read cdr.", err.Error())
+			// }
+
+			// SendCdr(string(buf[:n]))
 		}
 
 		listener, err := net.Listen("tcp4", addr)

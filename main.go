@@ -20,16 +20,18 @@ var (
 	svrAddr        = flag.String("svrAddr", "", "ip:port.")
 	alarmUri       = flag.String("alarmUri", "", "send alarm via...")
 	pushGateWayUri = flag.String("pushGateWayUri", "", "send alarm via...")
+	ispTxtFile     = flag.String("ispTxtFile", "phone_area_operators.txt", "phone mapto isp")
+	proXlsxFile    = flag.String("proXlsxFile", "NumberShow-201908.xlsx", "phone mapto productor")
 	phoneIspUri    = flag.String("phoneIspUri", "", "check phone's area via...")
-	phoneProUri    = flag.String("phoneProUri", "", "check phone's manul via...")
+	phoneProUri    = flag.String("phoneProUri", "", "check phone's productor via...")
 )
 
 type Config struct {
-	CdrCommaTotal 	int 	`yaml:"cdrCommaTotal"`
-	Version 		string 	`yaml:"version"`
-	Logfile 		bool   	`yaml:"logfile"`
-	Bakdays 		int    	`yaml:"bakdays"`
-	Nid     		string 	`yaml:"nid"`
+	CdrCommaTotal int    `yaml:"cdrCommaTotal"`
+	Version       string `yaml:"version"`
+	Logfile       bool   `yaml:"logfile"`
+	Bakdays       int    `yaml:"bakdays"`
+	Nid           string `yaml:"nid"`
 }
 
 var gCfg Config
@@ -66,6 +68,7 @@ func main() {
 	flag.Parse()
 
 	SetPhonePropertyUri(*phoneIspUri, *phoneProUri)
+	SetPhonePropertyFile(*ispTxtFile, *proXlsxFile)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go TrickerDeamon(ctx)
