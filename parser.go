@@ -5,16 +5,47 @@ import (
 	"log"
 	"strings"
 	"regexp"
+	"math/big"
+	"fmt"
+	"encoding/json"
+	"time"
 )
 
 func init() {
 	log.Println("init parser!")
 }
 
+// 时间策略
+const TIME_STRATEGY int8 = 0
+// 异常条数策略
+const ABNORMAL_STRATEGY int8 = 1
 
+
+// cdr状态结构体
+type CdrState struct {
+	// true 正常 false 异常
+	isNormal 		bool
+	// 当前时间戳
+	curTimestamp 	int64
+}
+
+// 告警结构体
+type AlarmInfo struct {
+	// 被叫号码所在key
+	key 			string
+	// 策略类型 0-时间策略 1->异常条数理策略
+	strategyType 	int8
+	// strategyType == 0 ? 56% : 20
+	value 			string
+}
+
+// cdr状态映射集
+var cdrStateMap = make(map[string] []*CdrState)
+
+// 分割解析cdr数据
 func parsingCdr (cdr string) map[string] string {
 	log.Println("[INFO] 接收到cdr信息为：",cdr)
-	resultMap := make(map[string] string,5)
+	resultMap := make(map[string] string,6)
 
 	columArrs := strings.Split(cdr,",")
 	if len(columArrs) > 0 {
@@ -33,6 +64,14 @@ func parsingCdr (cdr string) map[string] string {
 		return resultMap
 	}
 	return nil
+}
+
+func getKeys (callNumber string,calledNumber string) []string {
+	log.Println("[INFO]","主叫号码：",callNumber,"被叫号码：",calledNumber)
+
+	keys := []string{"联通|上海|上海","联通|上海","联通"}
+
+	return keys
 }
 
 // 校验被叫号码
@@ -54,11 +93,47 @@ func checkCalledNumber (calledNumber string) bool {
 	return flag
 }
 
-func getInfo (callNumber string) string {
-	log.Println("[INFO]","主叫号码：",callNumber)
+// 连续异常条数状态策略
+func abnormalStrategy (stateCdrs []*CdrState) int8 {
+	log.Println("[WARN]","执行异常条数策略部分")
 
-	info := string("联通|上海|上海")
-	return info
+	// 异常数据发生条数
+	abnormalCount := int8(0)
+	// 倒序遍历获取是或否连续异常
+	for i := (len(stateCdrs) - 1); i >=0; i-- {
+		stateCdr := stateCdrs[i]
+		if !stateCdr.isNormal {
+			abnormalCount ++
+		} else {
+			break
+		}
+	}
+	log.Println("[INFO]","发生连续异常数据条数有：",abnormalCount)
+	return abnormalCount
+}
+
+// 时间策略
+func timeStrategy (stateCdrs []*CdrState) *big.Float {
+	log.Println("[WARN]","执行时间策略部分")
+
+	// 异常信息占比
+	percentage := big.NewFloat(0.00)
+	// 非正常条数
+	abnormalCount := big.NewFloat(0.00)
+	cdrsLen := big.NewFloat(float64(len(stateCdrs)))
+
+	// 一定时间必须达到指定条数才会计算告警值
+	if len(stateCdrs) >= 200 {
+		// 遍历异常条数
+		for _,stateCdr := range stateCdrs {
+			if !stateCdr.isNormal {
+				abnormalCount = abnormalCount.Add(abnormalCount,big.NewFloat(1))
+			}
+		}
+		percentage = percentage.Quo(abnormalCount,cdrsLen)
+		log.Println("percentage = ",percentage)
+	}
+	return percentage
 }
 
 //bitmap: math/big kv/bolt
@@ -68,8 +143,7 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 	for {
 		cdr := recvCdr()
 		log.Println("[INFO] 接收到cdr数据信息为：",cdr)
-		// 解析cdr
-
+		// 解析后cdr映射信息
 		resultMap := parsingCdr(cdr)
 
 		if resultMap != nil {
@@ -81,42 +155,97 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 				log.Println("[INFO]","此条cdr为外线话单...")
 
 				callNumber := resultMap["callNumber"]
-				info := getInfo(callNumber)
-				log.Println("info = ",info)
-
-
 				createTime := resultMap["createTime"]
 				turnOnTime := resultMap["turnOnTime"]
 				shutDownTime := resultMap["shutDownTime"]
 
-
 				// 默认正常的bit位
-				vBit := uint8(0)
-				// 判断话务信息是否异常
+				isNormal := true
+				// 判断话务信息是否正常
 				if (strings.Compare(createTime,turnOnTime) == 0) && (strings.Compare(createTime,shutDownTime) == 0) {
 					// 异常数据
-					vBit = 1
+					isNormal = false
 				}
+				log.Println("isNormal = ",isNormal)
 
-				/*log.Println("vBit = ",vBit)
-				log.Println(" len(bitMap[info]) == ",len(bitMap[info]) == 0)
-				if len(bitMap) == 0 || len(bitMap[info].data) == 0 {
-					vBitMap := new(Bitmap)
-					vBitMap.SetBit(0,vBit)
-					bitMap[info] = *vBitMap
-				} else {
-					log.Println("vbit = ",vBit)
-					vBitMap := bitMap[info]
-					vBitMap.SetBit(vBitMap.bitsize,vBit)
-					bitMap[info] = vBitMap
-				}*/
+				// 获取phoneKeys
+				keys := getKeys(callNumber,calledNumber)
+				log.Println("info = ",keys)
 
+				// 当前时间戳
+				curTimestamp := time.Now().Unix()
+				log.Println("[INFO]","curTimestamp = ",curTimestamp)
+				for _, key := range keys {
+					log.Println("操作状态key值为：",key)
+
+					// 发送至监控系统
+					//sendCdrState(key,isNormal)
+
+					// 告警百分比
+					percentage := big.NewFloat(0.00)
+					// 首次加入数据
+					if cdrStateMap[key] == nil || (len(cdrStateMap[key]) == 0) {
+						log.Println("[WARN]","当前key首次加入记录！")
+						stateCdr := CdrState{isNormal,curTimestamp}
+						stateCdrs := [] *CdrState{&stateCdr}
+						// 追加
+						cdrStateMap[key] = stateCdrs
+					} else {
+						log.Println("[WARN]","追加keyCdr记录")
+						stateCdr := CdrState{isNormal,curTimestamp}
+						// 追加并取出之前已存在数据
+						stateCdrs := append(cdrStateMap[key], &stateCdr)
+						firstCdrCurTime := stateCdrs[0].curTimestamp
+
+						// 是否达到一定时间策略
+						if (curTimestamp - firstCdrCurTime) >= (5 * 60) {
+							percentage = timeStrategy(stateCdrs)
+							log.Println("[INFO]","时间策略计算返回值为：",percentage)
+							// 是否大于告警阈值
+							if big.NewFloat(0.5).Cmp(percentage) != 1 {
+								finalPercentage := fmt.Sprint("%0.2f",percentage.Mul(percentage,big.NewFloat(100))) + "%"
+								// 告警
+								alarm := AlarmInfo{key,TIME_STRATEGY,finalPercentage}
+								byteAlarm,err := json.Marshal(alarm)
+								if err != nil {
+									log.Println("[ERR]","err",err)
+								}
+								log.Println("byte",byteAlarm)
+								strAlarm := string(byteAlarm)
+								log.Println("[INFO]","strAlarm = ",strAlarm)
+
+								// 发送告警
+								sendAlarm(strAlarm)
+
+								// 数据清空
+								cdrStateMap[key] = append(cdrStateMap[key][:0])
+							}
+						} else {
+							// 此条数据为异常数据时才会执行策略
+							if !isNormal {
+								abnormalCount := abnormalStrategy(stateCdrs)
+								if abnormalCount >= 10 {
+									// 异常条数告警
+									alarm := AlarmInfo{key,ABNORMAL_STRATEGY,string(abnormalCount)}
+									byteAlarm,err := json.Marshal(alarm)
+									if err != nil {
+										log.Println("[ERR]","err",err)
+									}
+									strAlarm := string(byteAlarm)
+									log.Println("[INFO]","strAlarm = ",strAlarm)
+
+									// 发送告警
+									sendAlarm(strAlarm)
+
+									// 数据清空
+									cdrStateMap[key] = append(cdrStateMap[key][:0])
+								}
+							}
+						}
+
+					}
+				}
 			}
 		}
-
-		//parse cdr
-		//stat by aera||producter
-		alarm := ""
-		sendAlarm(alarm)
 	}
 }
