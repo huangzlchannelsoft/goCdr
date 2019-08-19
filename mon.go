@@ -139,6 +139,12 @@ func PromethuesClient(pushOrPull bool, pushOrPullUri string, nid string, sampleS
 		}()
 	}
 
+	trigger := ApplyTrigger("mon")
+	defer func() {
+		*trigger <- TRIGGER_BYE_OK
+		log.Println("exit promethuesClient.")
+	}()
+
 	sampleTicker := time.NewTicker(time.Duration(sampleSec) * time.Second)
 	for {
 		select {
@@ -155,6 +161,17 @@ func PromethuesClient(pushOrPull bool, pushOrPullUri string, nid string, sampleS
 						log.Println("[Err] mon push.", err.Error())
 					}
 				}
+			}
+		case x := <-*trigger:
+			if x == TRIGGER_BYE_BYE {
+				log.Println("delete pusher. promethuesClient")
+				for _, plugin := range gPlugins {
+					err := plugin.pusher.Delete()
+					if err != nil {
+						log.Println("[Err] mon delete pusher. promethuesClient", err.Error())
+					}
+				}
+				return
 			}
 		}
 	}
