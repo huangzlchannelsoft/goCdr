@@ -75,6 +75,8 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	go TransmitCdr(*as, *svrAddr)
+
 	if *as == "client" {
 		go CollectCdr(*cdrPath, SendCdr)
 	} else {
@@ -83,7 +85,6 @@ func main() {
 		go TrickerDeamon(ctx)
 		go PromethuesClient(true, *pushGateWayUri, gCfg.Nid, 60)
 
-		go TransmitCdr(*as, *svrAddr)
 		go TransmitAlarmCdr(*alarmUri)
 		go TransmitMonCdr()
 
