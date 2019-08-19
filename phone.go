@@ -136,6 +136,7 @@ func LoadExcelPhoneProductor(filepath string) {
 		// }
 		// boltWriteKeyValue(PhonePropertyDB, PhonePropertyBulk, kv)
 	}
+	log.Printf("LoadExcelPhoneProductor: total=%d.\n", len(phone2Productor))
 }
 
 /*
@@ -148,7 +149,6 @@ func LoadTxtPhoneIsp(filepath string) {
 	}
 	defer file.Close()
 
-	count := 0
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
@@ -169,10 +169,8 @@ func LoadTxtPhoneIsp(filepath string) {
 		if l > preMobileMaxLen {
 			preMobileMaxLen = l
 		}
-
-		count++
 	}
-	log.Println(count, preMobileMinLen, preMobileMaxLen)
+	log.Printf("LoadTxtPhoneIsp: total=%d, minLen=%d, maxLen=%d.\n", len(phone2Isp), preMobileMinLen, preMobileMaxLen)
 }
 
 /*
