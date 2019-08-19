@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"time"
 	"os"
+	"strconv"
 )
 
 func init() {
@@ -45,11 +46,11 @@ type CdrState struct {
 // 告警结构体
 type AlarmInfo struct {
 	// 被叫号码所在key
-	key 			string
+	Key 			string
 	// 策略类型 0-时间策略 1->异常条数理策略
-	strategyType 	int8
+	StrategyType 	int8
 	// strategyType == 0 ? 56% : 20
-	value 			string
+	Value 			string
 }
 
 // 将统计出的key信息写入文件
@@ -229,8 +230,6 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 				for _, key := range keys {
 					log.Println("操作状态key值为：",key)
 
-					// 告警百分比
-					percentage := big.NewFloat(0.00)
 					// 首次加入数据
 					if cdrStateMap[key] == nil || (len(cdrStateMap[key]) == 0) {
 						log.Println("[WARN]","当前key首次加入记录！")
@@ -243,15 +242,20 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 						stateCdr := CdrState{isNormal,curTimestamp}
 						// 追加并取出之前已存在数据
 						stateCdrs := append(cdrStateMap[key], &stateCdr)
+						cdrStateMap[key] = stateCdrs
 						firstCdrCurTime := stateCdrs[0].curTimestamp
+						finalPercentage := string("0.00%")
 
 						// 是否达到一定时间策略
 						if (curTimestamp - firstCdrCurTime) >= (gCfg.TimeMinInterva * 60) {
-							percentage = timeStrategy(stateCdrs)
-							// 百分比
-							finalPercentage := fmt.Sprintf("%0.2f",percentage.Mul(percentage,big.NewFloat(100))) + TAGE
+							// 告警百分比
+							percentage := timeStrategy(stateCdrs)
+
+							cd := big.NewFloat(0.00)
 							// 是否大于告警阈值
-							if big.NewFloat(gCfg.Percentage).Cmp(percentage) != 1 {
+							if cd.Cmp(percentage) != 0 && (big.NewFloat(gCfg.Percentage).Cmp(percentage) != 1) {
+								// 百分比
+								finalPercentage = fmt.Sprintf("%0.2f",percentage.Mul(percentage,big.NewFloat(100))) + TAGE
 								// 告警
 								alarm := AlarmInfo{key,TIME_STRATEGY,finalPercentage}
 								byteAlarm,err := json.Marshal(alarm)
@@ -264,6 +268,8 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 								// 发送告警
 								sendAlarm(strAlarm)
 							}
+							// 百分比
+							finalPercentage = fmt.Sprintf("%0.2f",percentage.Mul(percentage,big.NewFloat(100))) + TAGE
 							keyInfoLine := key + ARROW_SYMBOL + finalPercentage
 							// 数据key存储
 							writeKeysInfo(gCfg.StrategyInfoPath,keyInfoLine)
@@ -276,7 +282,7 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 								abnormalCount := abnormalStrategy(stateCdrs)
 								if abnormalCount >= gCfg.ConAbnormal {
 									// 异常条数告警
-									alarm := AlarmInfo{key,ABNORMAL_STRATEGY,string(abnormalCount)}
+									alarm := AlarmInfo{key,ABNORMAL_STRATEGY,strconv.Itoa(abnormalCount)}
 									byteAlarm,err := json.Marshal(alarm)
 									if err != nil {
 										log.Println("[ERR]","err",err)
