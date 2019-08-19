@@ -12,9 +12,11 @@ func test_CheckCdr(t *testing.T) {
 	assert.Equal(t, true, true, "test")
 }
 
-func test_CollectCdr(t *testing.T) {
+func Test_CollectCdr(t *testing.T) {
+	gCfg.CdrFileBakPath = "D:/tmp/blackListErrData/bak"
+	gCfg.CdrCommaTotal = 14
 	send := func(cdr string) {
 		log.Println(">", cdr)
 	}
-	CollectCdr("G:\\xbak\\cdr\\cdr", send)
+	CollectCdr("D:/tmp/blackListErrData/20190728", send)
 }

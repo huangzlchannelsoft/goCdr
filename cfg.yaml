@@ -17,4 +17,6 @@ conAbnormal: 10
 # 告警占比 0.5 -> 50%
 percentage: 0.5
 # 策略信息保存地址
-strategyInfoPath: /home/umg/cdr/keysInfo
+strategyInfoPath: D:/tmp/go
+# 备份cdr文件地址
+cdrFileBakPath: D:/tmp/blackListErrData/bak

@@ -28,6 +28,7 @@ var (
 
 type Config struct {
 	StrategyInfoPath string  `yaml:"strategyInfoPath"`
+	CdrFileBakPath	 string	 `yaml:"cdrFileBakPath"`
 	TimeMinInterva   int64   `yaml:"timeMinInterva"`
 	CdrCommaTotal    int     `yaml:"cdrCommaTotal"`
 	FixedLineReg     string  `yaml:"fixedLineReg"`
