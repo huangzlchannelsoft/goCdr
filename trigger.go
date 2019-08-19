@@ -20,10 +20,19 @@ func init() {
 	log.Println("init trigger!")
 }
 
+func curCnYearDay() int {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		log.Println("[Err] curCnYearDay", err.Error())
+		return time.Now().YearDay()
+	}
+	return time.Now().In(loc).YearDay()
+}
+
 func TrickerDeamon(ctx context.Context) {
 
 	ticker := time.NewTicker(time.Minute)
-	dtime := time.Now().YearDay()
+	dtime := curCnYearDay() //time.Now().YearDay()
 
 	for {
 		select {
@@ -33,8 +42,8 @@ func TrickerDeamon(ctx context.Context) {
 			}
 			return
 		case <-ticker.C:
-			if dtime != time.Now().YearDay() {
-				dtime = time.Now().YearDay()
+			if dtime != curCnYearDay() {
+				dtime = curCnYearDay()
 				for _, tc := range triggerChanList {
 					*tc <- TRIGGER_NEW_A_DAY
 				}

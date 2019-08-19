@@ -150,7 +150,10 @@ func PromethuesClient(pushOrPull bool, pushOrPullUri string, nid string, sampleS
 				thisPlugin = plugin
 				plugin.Call(setMetrix)
 				if plugin.pusher != nil {
-					plugin.pusher.Add()
+					err := plugin.pusher.Add()
+					if err != nil {
+						log.Println("[Err] mon push.", err.Error())
+					}
 				}
 			}
 		}

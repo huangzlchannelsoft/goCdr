@@ -127,6 +127,8 @@ func LoadExcelPhoneProductor(filepath string) {
 		area := sht.Cell(3, j).Value()
 		number := sht.Cell(4, j).Value()
 
+		area = strings.TrimSpace(strings.Trim(area, "\t"))
+		number = strings.TrimSpace(strings.Trim(number, "\t"))
 		// log.Println(number, productor, isp, province, area)
 		phone2Productor[number] = &PhoneProperty{productor, isp, province, area}
 		// kv := func() ([]byte, []byte) {

@@ -2,10 +2,10 @@
 package main
 
 import (
-	"fmt"
+	//"fmt"
 	"log"
-	"strconv"
-	"strings"
+	//"strconv"
+	//"strings"
 	"sync"
 )
 
@@ -39,48 +39,49 @@ func init() {
 }
 
 func TransmitMonCdr() {
+	log.Println("TransmitMonCdr")
+	/*
+		setKeyValue := func(k []byte, v []byte) {
+			log.Println(string(k))
+			pp := Key2PhoneProperty(string(k))
 
-	setKeyValue := func(k []byte, v []byte) {
-		log.Println(string(k))
-		pp := Key2PhoneProperty(string(k))
+			vs := strings.Split(string(v), "_")
+			callCounter, _ := strconv.Atoi(vs[0])
+			callErrCounter, _ := strconv.Atoi(vs[1])
+			oldCallCounter, _ := strconv.Atoi(vs[2])
+			oldCallErrCounter, _ := strconv.Atoi(vs[3])
 
-		vs := strings.Split(string(v), "_")
-		callCounter, _ := strconv.Atoi(vs[0])
-		callErrCounter, _ := strconv.Atoi(vs[1])
-		oldCallCounter, _ := strconv.Atoi(vs[2])
-		oldCallErrCounter, _ := strconv.Atoi(vs[3])
+			crs := &CallRateStat{
+				productor:         pp.productor,
+				isp:               pp.isp,
+				province:          pp.province,
+				area:              pp.area,
+				callCounter:       callCounter,
+				callErrCounter:    callErrCounter,
+				oldCallCounter:    oldCallCounter,
+				oldCallErrCounter: oldCallErrCounter,
+			}
 
-		crs := &CallRateStat{
-			productor:         pp.productor,
-			isp:               pp.isp,
-			province:          pp.province,
-			area:              pp.area,
-			callCounter:       callCounter,
-			callErrCounter:    callErrCounter,
-			oldCallCounter:    oldCallCounter,
-			oldCallErrCounter: oldCallErrCounter,
+			cstLock.Lock()
+			defer cstLock.Unlock()
+			property2Stat[string(k)] = crs
+			callRateStatList = append(callRateStatList, crs)
 		}
+		boltEnumKeyValue(CallStatDB, CallStatBulk, setKeyValue)
 
-		cstLock.Lock()
-		defer cstLock.Unlock()
-		property2Stat[string(k)] = crs
-		callRateStatList = append(callRateStatList, crs)
-	}
-	boltEnumKeyValue(CallStatDB, CallStatBulk, setKeyValue)
+		cursor := 0
+		getKeyValue := func() ([]byte, []byte) {
+			if len(callRateStatList) <= cursor {
+				crs := callRateStatList[cursor]
+				cursor++
 
-	cursor := 0
-	getKeyValue := func() ([]byte, []byte) {
-		if len(callRateStatList) <= cursor {
-			crs := callRateStatList[cursor]
-			cursor++
-
-			k := PhoneProperty2Key(&PhoneProperty{crs.productor, crs.isp, crs.province, crs.area})
-			v := fmt.Sprintf("%d_%d_%d_%d", crs.callCounter, crs.callErrCounter, crs.oldCallCounter, crs.oldCallErrCounter)
-			return []byte(k), []byte(v)
+				k := PhoneProperty2Key(&PhoneProperty{crs.productor, crs.isp, crs.province, crs.area})
+				v := fmt.Sprintf("%d_%d_%d_%d", crs.callCounter, crs.callErrCounter, crs.oldCallCounter, crs.oldCallErrCounter)
+				return []byte(k), []byte(v)
+			}
+			return nil, nil
 		}
-		return nil, nil
-	}
-
+	*/
 	trigger := GetTrigger()
 
 	for {
@@ -90,14 +91,16 @@ func TransmitMonCdr() {
 			defer cstLock.Unlock()
 
 			if x == TRIGGER_EXIT_PROC { //save cur status
-				cursor = 0
-				boltBatchWriteKeyValue(CallStatDB, CallStatBulk, getKeyValue)
+				log.Println("Process Exist.callStat")
+				//cursor = 0
+				//boltBatchWriteKeyValue(CallStatDB, CallStatBulk, getKeyValue)
 				return
 			} else if x == TRIGGER_NEW_A_DAY { //reset status
+				log.Println("New a day, reset callStat.", len(callRateStatList))
 				oldCallRateStatList = callRateStatList
 				callRateStatList = nil
 				property2Stat = make(map[string]*CallRateStat)
-				boltDeleteBucket(CallStatDB, CallStatBulk)
+				//boltDeleteBucket(CallStatDB, CallStatBulk)
 			}
 		}
 	}
@@ -160,8 +163,8 @@ func SetCallStatMeta(newMetrix NewMetrix, regMetrix RegMetrix) {
 }
 
 func CallCallStat(setMetrix SetMetrix) {
-	cstLock.Lock()
-	defer cstLock.Unlock()
+	//	cstLock.Lock()
+	//  defer cstLock.Unlock()
 
 	cdrCallStatJob := CallStatJob
 
@@ -170,12 +173,15 @@ func CallCallStat(setMetrix SetMetrix) {
 		crsList = oldCallRateStatList
 		oldCallRateStatList = nil
 	}
+	updateCount := 0
 	for _, crt := range crsList {
 		if crt.callCounter != crt.oldCallCounter {
 			setMetrix(float64(crt.callCounter), []string{crt.productor, crt.isp, crt.province, crt.area}, cdrCallStatJob, 0)
 			setMetrix(float64(crt.callErrCounter), []string{crt.productor, crt.isp, crt.province, crt.area}, cdrCallStatJob, 1)
 			crt.oldCallCounter = crt.callCounter
 			crt.oldCallErrCounter = crt.callErrCounter
+			updateCount++
 		}
 	}
+	log.Println("Update callStats count:", updateCount)
 }
