@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
 )
 
 var (
@@ -50,20 +51,57 @@ func TransmitCdr(mode string, addr string) {
 
 		netOk := false
 		var conn net.Conn = nil
-		for {
+
+		log.Println("enter transmit client.")
+		trigger := ApplyTrigger("transmit")
+		exit := false
+		go func() {
+			defer func() {
+				exit = true
+				log.Println("Close connected net.Conn. transmit")
+				if conn != nil {
+					conn.Close()
+				}
+
+				*trigger <- TRIGGER_BYE_OK
+			}()
+
+			for {
+				x := <-*trigger
+				if x == TRIGGER_BYE_BYE {
+					log.Println("doing for Process Exit. transmit")
+					break
+				}
+			}
+		}()
+
+		defer func() {
+			log.Println("exit transmit server.")
+		}()
+
+		for !exit {
 			if !netOk {
 				netOk, conn = connect()
 			}
 
 			if netOk {
 				connected(conn)
+				netOk = false
+			} else {
+				time.Sleep(time.Second)
 			}
 		}
 	} else if *as == "server" {
 
+		var conns []*net.Conn
+		add := func(conn *net.Conn) {
+			conns = append(conns, conn)
+		}
+
 		connected := func(conn net.Conn) {
 			log.Println("connected to ", conn.RemoteAddr())
-			defer conn.Close()
+			add(&conn)
+			//defer conn.Close()
 
 			//split tcp stream
 			if true {
@@ -116,11 +154,43 @@ func TransmitCdr(mode string, addr string) {
 		if err != nil {
 			log.Panic("[Err] transmit.", err.Error())
 		}
+		//defer listener.Close()
+
+		log.Println("enter transmit server.")
+		trigger := ApplyTrigger("transmit")
+		go func() {
+			defer func() {
+				log.Println("Close connected net.Conn. transmit")
+				for _, conn := range conns {
+					(*conn).Close()
+				}
+				conns = nil
+
+				log.Println("Close net.listener. transmit")
+				listener.Close()
+
+				*trigger <- TRIGGER_BYE_OK
+			}()
+
+			for {
+				x := <-*trigger
+				if x == TRIGGER_BYE_BYE {
+					log.Println("doing for Process Exit. transmit")
+					break
+				}
+			}
+		}()
+
+		defer func() {
+			log.Println("exit transmit server.")
+		}()
+
 		for {
 			log.Println("listen to ", addr)
 			conn, err := listener.Accept()
 			if err != nil {
-				log.Panic("[Err] transmit.", err.Error())
+				log.Println("[Err] listener.Accept. transmit.", err.Error())
+				break
 			}
 
 			go connected(conn)

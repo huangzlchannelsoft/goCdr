@@ -24,6 +24,7 @@ var (
 	proXlsxFile    = flag.String("proXlsxFile", "NumberShow-201908.xlsx", "phone mapto productor")
 	phoneIspUri    = flag.String("phoneIspUri", "", "check phone's area via...")
 	phoneProUri    = flag.String("phoneProUri", "", "check phone's productor via...")
+	offsetHour     = flag.Int("offsetHour", 0, "adjust local time to bj-time.")
 )
 
 type Config struct {
@@ -77,13 +78,19 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go TransmitCdr(*as, *svrAddr)
+	go TrickerDeamon(ctx, *offsetHour)
+	defer func() {
+		TriggerExited()
+		log.Println("exit.")
+		os.Exit(0)
+	}()
 
 	if *as == "client" {
 		go CollectCdr(*cdrPath, SendCdr)
 	} else {
 		SetPhonePropertyUri(*phoneIspUri, *phoneProUri)
 		SetPhonePropertyFile(*ispTxtFile, *proXlsxFile)
-		go TrickerDeamon(ctx)
+
 		go PromethuesClient(true, *pushGateWayUri, gCfg.Nid, 60)
 
 		go TransmitAlarmCdr(*alarmUri)
@@ -99,13 +106,15 @@ func main() {
 
 	c := make(chan os.Signal)
 	signal.Notify(c)
-	select {
-	case s := <-c:
-		log.Println("process received signal:", s.String())
-		switch s {
-		case syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
-			cancel()
-			return
+	for {
+		select {
+		case s := <-c:
+			log.Println("process received signal:", s.String())
+			switch s {
+			case syscall.SIGKILL, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
+				cancel()
+				return
+			}
 		}
 	}
 }
