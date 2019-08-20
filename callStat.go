@@ -181,13 +181,15 @@ func CallCallStat(setMetrix SetMetrix) {
 	}
 	cstLock.Unlock()
 
+	updateCount := 0
 	for _, crt := range crsList {
 		if crt.callCounter != crt.oldCallCounter {
 			setMetrix(float64(crt.callCounter), []string{crt.productor, crt.isp, crt.province, crt.area}, cdrCallStatJob, 0)
 			setMetrix(float64(crt.callErrCounter), []string{crt.productor, crt.isp, crt.province, crt.area}, cdrCallStatJob, 1)
 			crt.oldCallCounter = crt.callCounter
 			crt.oldCallErrCounter = crt.callErrCounter
+			updateCount++
 		}
 	}
-	log.Println("Update callStats count:", len(crsList))
+	log.Printf("Update callStats count: %d.%d \n", updateCount, len(crsList))
 }

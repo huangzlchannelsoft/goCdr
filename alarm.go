@@ -26,7 +26,9 @@ func TransmitAlarmCdr(uri string) {
 
 		ok := HttpPost(&client, uri, alarm, nil)
 		if ok { //TODO: send alarm error.
-
+			log.Printf("send alarm: %s.\n", alarm)
+		} else {
+			log.Printf("[Err] send alarm: %s.\n", alarm)
 		}
 	}
 }
