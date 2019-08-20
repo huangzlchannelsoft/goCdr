@@ -51,6 +51,8 @@ type AlarmInfo struct {
 	StrategyType 	int8
 	// strategyType == 0 ? 56% : 20
 	Value 			string
+	// Nid 标示服务
+	Nid             string
 }
 
 // 将统计出的key信息写入文件
@@ -257,7 +259,7 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 								// 百分比
 								finalPercentage = fmt.Sprintf("%0.2f",percentage.Mul(percentage,big.NewFloat(100))) + TAGE
 								// 告警
-								alarm := AlarmInfo{key,TIME_STRATEGY,finalPercentage}
+								alarm := AlarmInfo{key,TIME_STRATEGY,finalPercentage,gCfg.Nid}
 								byteAlarm,err := json.Marshal(alarm)
 								if err != nil {
 									log.Println("[ERR]","err",err)
@@ -282,7 +284,7 @@ func ParseCdr(recvCdr CdrRecv, sendAlarm AlarmSend) {
 								abnormalCount := abnormalStrategy(stateCdrs)
 								if abnormalCount >= gCfg.ConAbnormal {
 									// 异常条数告警
-									alarm := AlarmInfo{key,ABNORMAL_STRATEGY,strconv.Itoa(abnormalCount)}
+									alarm := AlarmInfo{key,ABNORMAL_STRATEGY,strconv.Itoa(abnormalCount),gCfg.Nid}
 									byteAlarm,err := json.Marshal(alarm)
 									if err != nil {
 										log.Println("[ERR]","err",err)
