@@ -33,8 +33,8 @@ var (
 	phoneHttpClient     = http.Client{Timeout: time.Second * 5}
 	_phoneIspUri        = ""
 	_phoneProUri        = ""
-	_phoneProductorXlsx = "NumberShow-201908.xlsx"
-	_phoneIspTxt        = "phone_area_operators.txt"
+	_phoneProductorXlsx = "a.dat" //"NumberShow-201908.xlsx"
+	_phoneIspTxt        = "b.dat" //"phone_area_operators.txt"
 	preMobileMinLen     = 11
 	preMobileMaxLen     = 0
 	preFixPhoneMinLen   = 3
@@ -159,8 +159,14 @@ func LoadTxtPhoneIsp(filepath string) {
 		code := s[4]
 		//s := scanner.Text()
 		//fmt.Sscanf(s, "%s,%s,%s,%s,%s,%s", idx, number, province, area, code, isp)
-		phone2Isp[number] = &PhoneProperty{"", s[5], s[2], s[3]}
-		code2Area[code] = &PhoneProperty{"", "固话", s[2], s[3]}
+		province := s[2]
+		area := s[3]
+		if province == area || province == "国家应急" {
+			area = area + "市"
+		}
+
+		phone2Isp[number] = &PhoneProperty{"", s[5], province, area}
+		code2Area[code] = &PhoneProperty{"", "固话", province, area}
 
 		l := len(number)
 		if l < preMobileMinLen {

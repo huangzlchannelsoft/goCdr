@@ -20,8 +20,8 @@ var (
 	svrAddr        = flag.String("svrAddr", "", "ip:port.")
 	alarmUri       = flag.String("alarmUri", "", "send alarm via...")
 	pushGateWayUri = flag.String("pushGateWayUri", "", "send alarm via...")
-	ispTxtFile     = flag.String("ispTxtFile", "phone_area_operators.txt", "phone mapto isp")
-	proXlsxFile    = flag.String("proXlsxFile", "NumberShow-201908.xlsx", "phone mapto productor")
+	ispTxtFile     = flag.String("ispTxtFile", "b.dat", "phone mapto isp")
+	proXlsxFile    = flag.String("proXlsxFile", "a.dat", "phone mapto productor")
 	phoneIspUri    = flag.String("phoneIspUri", "", "check phone's area via...")
 	phoneProUri    = flag.String("phoneProUri", "", "check phone's productor via...")
 	offsetHour     = flag.Int("offsetHour", 0, "adjust local time to bj-time.")
@@ -29,7 +29,7 @@ var (
 
 type Config struct {
 	StrategyInfoPath string  `yaml:"strategyInfoPath"`
-	CdrFileBakPath	 string	 `yaml:"cdrFileBakPath"`
+	CdrFileBakPath   string  `yaml:"cdrFileBakPath"`
 	TimeMinInterva   int64   `yaml:"timeMinInterva"`
 	CdrCommaTotal    int     `yaml:"cdrCommaTotal"`
 	FixedLineReg     string  `yaml:"fixedLineReg"`
