@@ -119,3 +119,16 @@ func test_UpdatePhoneProperty(t *testing.T) {
 		log.Println(pp.productor, pp.isp, pp.province, pp.area)
 	}
 }
+
+func test_PhoneAlarm(t *testing.T) {
+
+	sendAlarm := func(data string) {
+		t.Log(data)
+	}
+
+	LoadExcelPhoneProductor("NumberShow-201908.xlsx")
+	LoadTxtPhoneIsp("phone_area_operators.txt")
+	SetPhoneAlarmFunc(sendAlarm)
+
+	GetPhoneProperty("12345678901", "400888888888")
+}

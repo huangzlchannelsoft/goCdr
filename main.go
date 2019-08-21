@@ -90,6 +90,7 @@ func main() {
 	} else {
 		SetPhonePropertyUri(*phoneIspUri, *phoneProUri)
 		SetPhonePropertyFile(*ispTxtFile, *proXlsxFile)
+		SetPhoneAlarmFunc(SendAlarm)
 
 		go PromethuesClient(true, *pushGateWayUri, gCfg.Nid, 60)
 

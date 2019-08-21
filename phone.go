@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -30,15 +31,16 @@ var (
 	phone2Productor     map[string]*PhoneProperty
 	phone2Isp           map[string]*PhoneProperty
 	code2Area           map[string]*PhoneProperty
-	phoneHttpClient     = http.Client{Timeout: time.Second * 5}
-	_phoneIspUri        = ""
-	_phoneProUri        = ""
-	_phoneProductorXlsx = "a.dat" //"NumberShow-201908.xlsx"
-	_phoneIspTxt        = "b.dat" //"phone_area_operators.txt"
-	preMobileMinLen     = 11
-	preMobileMaxLen     = 0
-	preFixPhoneMinLen   = 3
-	preFixPhoneMaxLen   = 4
+	phoneHttpClient               = http.Client{Timeout: time.Second * 5}
+	_phoneIspUri                  = ""
+	_phoneProUri                  = ""
+	_phoneProductorXlsx           = "a.dat" //"NumberShow-201908.xlsx"
+	_phoneIspTxt                  = "b.dat" //"phone_area_operators.txt"
+	preMobileMinLen               = 11
+	preMobileMaxLen               = 0
+	preFixPhoneMinLen             = 3
+	preFixPhoneMaxLen             = 4
+	sendPhoneAlarm_     AlarmSend = nil
 )
 
 func init() {
@@ -61,7 +63,9 @@ func SetPhonePropertyFile(ispTxtFile string, proXlsxFile string) {
 	LoadExcelPhoneProductor(_phoneProductorXlsx)
 	LoadTxtPhoneIsp(_phoneIspTxt)
 }
-
+func SetPhoneAlarmFunc(sendAlarm AlarmSend) {
+	sendPhoneAlarm_ = sendAlarm
+}
 func SetPhonePropertyUri(ispUri string, proUri string) {
 	_phoneIspUri = ispUri
 	_phoneProUri = proUri
@@ -201,19 +205,27 @@ func _getPhoneIsp(number string) *PhoneProperty {
 	return nil
 }
 func GetPhoneProperty(na, nb string) *PhoneProperty {
-	pp := &PhoneProperty{"", "", "", ""}
+	pp := &PhoneProperty{"Xproductor", "Xisp", "Xprovince", "Xarea"}
 
 	pa := phone2Productor[na]
 	pb := _getPhoneIsp(nb)
 
 	if pa != nil {
 		pp.productor = pa.productor
+	} else {
+		if sendPhoneAlarm_ != nil {
+			sendPhoneAlarm_(fmt.Sprintf("{\"Nid\":\"%s\",\"Why\":\"XProductor\",\"What\":\"%s\"}", gCfg.Nid, na))
+		}
 	}
 
 	if pb != nil {
 		pp.isp = pb.isp
 		pp.province = pb.province
 		pp.area = pb.area
+	} else {
+		if sendPhoneAlarm_ != nil {
+			sendPhoneAlarm_(fmt.Sprintf("{\"Nid\":\"%s\",\"Why\":\"XIsp\",\"What\":\"%s\"}", gCfg.Nid, nb))
+		}
 	}
 
 	return pp
